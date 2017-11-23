@@ -1,45 +1,67 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
-type dncpResponseOauth struct {
-	tokenType   string `json:"token_type"`
-	accessToken string `json:"access_token"`
+type oauthPayload struct {
+	TokenType   string `json:"token_type"`
+	AccessToken string `json:"access_token"`
 }
 
 func main() {
+
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	secretKey := os.Getenv("SECRET_KEY")
+
 	url := "https://contrataciones.gov.py/datos/api/oauth/token"
-	fmt.Println("URL:>", url)
+	fmt.Println("URL: ", url)
 
-	var jsonStr = []byte(`{}`)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("Authorization", "Basic MTkwMzBjNjUtNWUzZC00MDFmLWEyMmQtM2Q3OTY1YjdkOTA3OmRjOTAwYTg0LWIxZjktNDAwYi05YmVmLTk1YTA3ODkwZDk0MQ==")
-	req.Header.Set("Content-Type", "application/json")
-	//	fmt.Println("request Headers:", req.Header)
+	req, err := http.NewRequest("POST", url, nil)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	defer resp.Body.Close()
 
-	fmt.Println("response Status:", resp.Status)
-	//	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
+	req.Header.Add("Authorization", "Basic "+secretKey)
 
-	var s = new(dncpResponseOauth)
+	res, postErr := http.DefaultClient.Do(req)
 
-	err = json.Unmarshal(body, &s)
-	if err != nil {
-		fmt.Println("whoops json", err)
+	if postErr != nil {
+		log.Fatal(postErr)
 	}
-	fmt.Println("json", s)
+
+	defer res.Body.Close()
+
+	body, readErr := ioutil.ReadAll(res.Body)
+
+	if readErr != nil {
+		log.Fatal(err)
+	}
+
+	//fmt.Println(res)
+	//fmt.Println(string(body))
+
+	responsePayload := oauthPayload{}
+
+	jsonErr := json.Unmarshal(body, &responsePayload)
+
+	if jsonErr != nil {
+		log.Fatal(jsonErr)
+	}
+
+	fmt.Println("token type:", responsePayload.TokenType)
+	fmt.Println("access token:", responsePayload.AccessToken)
 }
